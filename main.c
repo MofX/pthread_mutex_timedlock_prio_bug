@@ -12,7 +12,8 @@
 static int THREAD_WORK_TIME = 5;
 static int MAIN_LOCK_TIMEOUT = 1;
 static int MUTEX_PROTOCOL = PTHREAD_PRIO_INHERIT;
-static int SCHED_ALGO = SCHED_FIFO;
+static int SCHED_ALGO_MAIN = SCHED_FIFO;
+static int SCHED_ALGO_THREAD = SCHED_FIFO;
 
 double startTime;
 pthread_mutex_t mutex;
@@ -64,12 +65,12 @@ void setupMutex()
     pthread_mutex_init(&mutex, &mutexattr);
 }
 
-void setThreadPrio(int prio)
+void setThreadPrio(int prio, int algo)
 {
     int rc;
     struct sched_param schedparam;
-    schedparam.sched_priority = sched_get_priority_min(SCHED_ALGO) + prio;
-    rc = pthread_setschedparam(pthread_self(), SCHED_ALGO, &schedparam);
+    schedparam.sched_priority = sched_get_priority_min(algo) + prio;
+    rc = pthread_setschedparam(pthread_self(), algo, &schedparam);
 
     if (rc) {
         printf("Unable to set scheduling parameters: ");
@@ -81,14 +82,14 @@ void setThreadPrio(int prio)
         printf("\n");
         exit(1);
     }
-    debug("Prio set to %d", prio);
+    debug("Prio set to %d (%s)", prio, algo == SCHED_FIFO ? "FIFO" : "RR");
 }
 
 void *lockThread(void *param)
 {
     double end;
 
-    setThreadPrio(0);
+    setThreadPrio(0, SCHED_ALGO_THREAD);
 
     debug("Locking mutex");
     pthread_mutex_lock(&mutex);
@@ -124,7 +125,7 @@ int main()
     setupMutex();
     pthread_barrier_init(&barrier, NULL, 2);
 
-    setThreadPrio(1);
+    setThreadPrio(1, SCHED_ALGO_MAIN);
 
     pthread_create(&thread, NULL, lockThread, NULL);
 
